@@ -10,37 +10,16 @@ import {
   Heart,
   History,
   Globe,
-  Mic,
   AlertCircle,
   CheckCircle2,
 } from "lucide-react";
-
-const voiceOptions = {
-  English: [
-    { id: "en-female", name: "Female Voice" },
-    { id: "en-male", name: "Male Voice" },
-  ],
-
-  Hindi: [
-    { id: "hi-female", name: "Female Voice" },
-    { id: "hi-male", name: "Male Voice" },
-  ],
-
-  Marathi: [
-    { id: "mr-female", name: "Female Voice" },
-    { id: "mr-male", name: "Male Voice" },
-  ],
-
-  German: [
-    { id: "de-female", name: "Female Voice" },
-    { id: "de-male", name: "Male Voice" },
-  ],
-};
+import VoiceSelector from "../components/VoiceSelector";
 
 const Dashboard = () => {
   const [text, setText] = useState("");
   const [language, setLanguage] = useState("English");
-  const [voice, setVoice] = useState(voiceOptions["English"][0].id);
+  const [voice, setVoice] = useState("en-female");
+  const [voiceName, setVoiceName] = useState("Female Voice");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGenerated, setIsGenerated] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -56,7 +35,15 @@ const Dashboard = () => {
   const handleLanguageChange = (e) => {
     const selectedLang = e.target.value;
     setLanguage(selectedLang);
-    setVoice(voiceOptions[selectedLang][0].id);
+  };
+
+  const handleVoiceChange = (selectedId, selectedDisplayName) => {
+    if (selectedId) {
+      setVoice(selectedId);
+    }
+    if (selectedDisplayName) {
+      setVoiceName(selectedDisplayName);
+    }
   };
 
   const handleTextChange = (e) => {
@@ -92,8 +79,6 @@ const Dashboard = () => {
       setIsGenerated(true);
     }, 1200);
   };
-
-  const currentVoiceObj = voiceOptions[language]?.find((v) => v.id === voice);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 relative overflow-x-hidden selection:bg-purple-500 selection:text-white">
@@ -267,23 +252,11 @@ const Dashboard = () => {
             </div>
 
             {/* Voice Selector */}
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                <Mic className="w-3.5 h-3.5 text-blue-400" />
-                <span>Voice</span>
-              </label>
-              <select
-                value={voice}
-                onChange={(e) => setVoice(e.target.value)}
-                className="w-full px-3.5 py-3 bg-slate-950/70 border border-slate-800 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all cursor-pointer"
-              >
-                {voiceOptions[language]?.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <VoiceSelector
+              language={language}
+              selectedVoice={voice}
+              onChange={handleVoiceChange}
+            />
 
             {/* Generate Speech Button */}
             <div>
@@ -322,7 +295,7 @@ const Dashboard = () => {
                     Generated Audio
                   </h3>
                   <p className="text-xs text-slate-400">
-                    {language} • {currentVoiceObj?.name}
+                    {language} • {voiceName}
                   </p>
                 </div>
               </div>
