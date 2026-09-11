@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { generateSpeech } from "../services/api";
 import {
   AudioWaveform,
   Sparkles,
@@ -56,29 +57,41 @@ const Dashboard = () => {
     }
   };
 
-  const handleGenerateSpeech = (e) => {
-    e.preventDefault();
-    if (!text.trim()) {
-      setValidationError("Please enter some text to generate speech.");
-      return;
-    }
-    if (text.length > MAX_CHARS) {
-      setValidationError(
-        `Text exceeds the maximum ${MAX_CHARS} character limit.`,
-      );
-      return;
-    }
-
-    setValidationError("");
-    setIsGenerating(true);
-    setIsPlaying(false);
-
-    // Simulate generation UI delay for state interaction
-    setTimeout(() => {
-      setIsGenerating(false);
-      setIsGenerated(true);
-    }, 1200);
-  };
+  const handleGenerateSpeech = async (e) => {
+      e.preventDefault();
+    
+      if (!text.trim()) {
+        setValidationError("Please enter some text to generate speech.");
+        return;
+      }
+    
+      if (text.length > MAX_CHARS) {
+        setValidationError(
+          `Text exceeds the maximum ${MAX_CHARS} character limit.`,
+        );
+        return;
+      }
+    
+      setValidationError("");
+      setIsGenerating(true);
+      setIsPlaying(false);
+    
+      try {
+        const response = await generateSpeech({
+          text,
+          language,
+          voice,
+        });
+    
+        console.log("Backend response:", response.data);
+        setIsGenerating(false);
+        setIsGenerated(true);
+      } catch (error) {
+        console.error("TTS API error:", error);
+        setValidationError("Unable to generate speech. Please try again.");
+        setIsGenerating(false);
+      }
+    };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 relative overflow-x-hidden selection:bg-purple-500 selection:text-white">

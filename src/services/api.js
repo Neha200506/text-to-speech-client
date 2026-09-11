@@ -8,4 +8,8 @@ export const checkHealth = () => {
   return API.get("/health");
 };
 
+export const generateSpeech = (data) => {
+  return API.post("/tts", data);
+};
+
 export default API;
