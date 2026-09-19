@@ -1,10 +1,8 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import {
   AudioWaveform,
   Search,
-  Play,
-  Pause,
   Download,
   Heart,
   Calendar,
@@ -12,65 +10,43 @@ import {
   Mic,
   ArrowLeft,
   X,
-} from 'lucide-react';
-
-const mockFavorites = [
-  {
-    id: '1',
-    text: 'Convert your ideas into natural-sounding speech with instant AI voice generation.',
-    language: 'English',
-    voice: 'Female Voice',
-    date: 'Sep 9, 2026 • 05:30 PM',
-    duration: '0:22',
-  },
-  {
-    id: '2',
-    text: 'यह ऑडियो फाइल आपकी पसंदीदा लिस्ट में सुरक्षित कर दी गई है।',
-    language: 'Hindi',
-    voice: 'Male Voice',
-    date: 'Sep 8, 2026 • 02:15 PM',
-    duration: '0:16',
-  },
-  {
-    id: '3',
-    text: 'माझ्या आवडत्या आवाजातील हे संवाद खूप छान आणि स्पष्ट आहेत.',
-    language: 'Marathi',
-    voice: 'Female Voice',
-    date: 'Sep 7, 2026 • 11:10 AM',
-    duration: '0:14',
-  },
-  {
-    id: '4',
-    text: 'Sparen Sie Zeit und erstellen Sie professionelle Sprachaufnahmen direkt im Browser.',
-    language: 'German',
-    voice: 'Male Voice',
-    date: 'Sep 6, 2026 • 08:45 PM',
-    duration: '0:28',
-  },
-  {
-    id: '5',
-    text: 'Natural pitch, rhythm, and clarity delivered instantly for content creators.',
-    language: 'English',
-    voice: 'Male Voice',
-    date: 'Sep 4, 2026 • 01:20 PM',
-    duration: '0:19',
-  },
-];
+} from "lucide-react";
+import {
+  getFavorites,
+  toggleFavoriteStatus,
+} from "../services/speechStorage";
+import AudioPlayer from "../components/AudioPlayer";
 
 const Favorites = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [favoritesList, setFavoritesList] = useState(mockFavorites);
-  const [playingId, setPlayingId] = useState(null);
-
-  const handleRemoveFavorite = (id) => {
-    setFavoritesList((prev) => prev.filter((item) => item.id !== id));
-    if (playingId === id) {
-      setPlayingId(null);
+  const userEmail = localStorage.getItem("userEmail") || "";
+  const storedName = localStorage.getItem("userName");
+  const userName =
+    storedName && storedName !== "neharedekar17" ? storedName : "Neha Redekar";
+  const userInitials = (() => {
+    if (!userName) return "NR";
+    const cleanName = userName.includes("@") ? userName.split("@")[0] : userName;
+    const parts = cleanName.trim().split(/[\s._-]+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
     }
+    return cleanName.slice(0, 2).toUpperCase() || "NR";
+  })();
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [favoritesList, setFavoritesList] = useState([]);
+
+  const reloadFavorites = () => {
+    const list = getFavorites(userEmail);
+    setFavoritesList(list);
   };
 
-  const togglePlay = (id) => {
-    setPlayingId((prev) => (prev === id ? null : id));
+  useEffect(() => {
+    reloadFavorites();
+  }, [userEmail]);
+
+  const handleRemoveFavorite = (id) => {
+    toggleFavoriteStatus(id, userEmail);
+    reloadFavorites();
   };
 
   const filteredList = favoritesList.filter((item) => {
@@ -116,11 +92,11 @@ const Favorites = () => {
             </Link>
 
             <div className="flex items-center gap-3 bg-slate-950/60 border border-slate-800 px-3.5 py-1.5 rounded-full">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-xs font-bold text-white">
-                JD
+              <div className="w-7 h-7 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-xs font-bold text-white uppercase">
+                {userInitials}
               </div>
               <span className="text-xs font-medium text-slate-300 hidden sm:inline-block">
-                John Doe
+                {userName}
               </span>
             </div>
           </div>
@@ -165,7 +141,7 @@ const Favorites = () => {
             {searchQuery && (
               <button
                 type="button"
-                onClick={() => setSearchQuery('')}
+                onClick={() => setSearchQuery("")}
                 className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -178,7 +154,6 @@ const Favorites = () => {
         {filteredList.length > 0 ? (
           <div className="space-y-4">
             {filteredList.map((item) => {
-              const isPlayingThis = playingId === item.id;
               return (
                 <div
                   key={item.id}
@@ -214,28 +189,16 @@ const Favorites = () => {
                     </p>
                   </div>
 
-                  {/* Controls / Actions Row */}
-                  <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-                    {/* Play/Pause Button & Duration */}
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => togglePlay(item.id)}
-                        className="h-10 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-xs font-medium flex items-center gap-2 shadow-md shadow-purple-600/25 transition-all cursor-pointer"
-                      >
-                        {isPlayingThis ? (
-                          <>
-                            <Pause className="w-4 h-4 fill-white" />
-                            <span>Pause</span>
-                          </>
-                        ) : (
-                          <>
-                            <Play className="w-4 h-4 fill-white" />
-                            <span>Play ({item.duration})</span>
-                          </>
-                        )}
-                      </button>
+                  {/* Single-Playback Audio Player */}
+                  {item.audio && (
+                    <div className="pt-1">
+                      <AudioPlayer id={item.id} audioUrl={item.audio} />
                     </div>
+                  )}
+
+                  {/* Controls / Actions Row */}
+                  <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-slate-800/40">
+                    <div></div>
 
                     {/* Action Icons (Remove Favorite & Download) */}
                     <div className="flex items-center gap-2">
@@ -248,13 +211,16 @@ const Favorites = () => {
                         <Heart className="w-4 h-4 fill-pink-500" />
                       </button>
 
-                      <button
-                        type="button"
-                        className="px-4 py-2.5 bg-slate-950/60 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-medium rounded-xl flex items-center gap-2 transition-all cursor-pointer"
-                      >
-                        <Download className="w-4 h-4 text-purple-400" />
-                        <span>Download</span>
-                      </button>
+                      {item.audio ? (
+                        <a
+                          href={item.audio}
+                          download="generated-speech.mp3"
+                          className="px-4 py-2.5 bg-slate-950/60 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-medium rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+                        >
+                          <Download className="w-4 h-4 text-purple-400" />
+                          <span>Download</span>
+                        </a>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -272,18 +238,30 @@ const Favorites = () => {
                 No favorite speech items
               </h3>
               <p className="text-slate-400 text-sm max-w-md mx-auto">
-                You haven't saved any speech clips to your favorites yet. Generate speech and tap the heart icon to save them here.
+                {searchQuery
+                  ? "No favorite speech items found matching your search filter."
+                  : "You haven't saved any speech clips to your favorites yet. Generate speech and tap the heart icon to save them here."}
               </p>
             </div>
-            <div className="pt-2">
-              <Link
-                to="/dashboard"
-                className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-purple-600/25 transition-all cursor-pointer inline-flex items-center gap-2"
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl transition-colors cursor-pointer inline-flex items-center gap-2"
               >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Return to Dashboard</span>
-              </Link>
-            </div>
+                <span>Clear search filter</span>
+              </button>
+            ) : (
+              <div className="pt-2">
+                <Link
+                  to="/dashboard"
+                  className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-purple-600/25 transition-all cursor-pointer inline-flex items-center gap-2"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Return to Dashboard</span>
+                </Link>
+              </div>
+            )}
           </div>
         )}
       </main>

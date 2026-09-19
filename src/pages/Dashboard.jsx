@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { generateSpeech } from "../services/api";
+import { saveSpeechItem, toggleFavoriteStatus } from "../services/speechStorage";
+import { validateTextMatchesLanguage } from "../utils/languageValidator";
 import {
   AudioWaveform,
   Sparkles,
@@ -13,20 +15,46 @@ import {
   Globe,
   AlertCircle,
   CheckCircle2,
+  LogOut,
 } from "lucide-react";
 import VoiceSelector from "../components/VoiceSelector";
+import AudioPlayer from "../components/AudioPlayer";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+
+  const storedName = localStorage.getItem("userName");
+  const userName = (storedName && storedName !== "neharedekar17") ? storedName : "Neha Redekar";
+  const userInitials = (() => {
+    if (!userName) return "NR";
+    const cleanName = userName.includes("@") ? userName.split("@")[0] : userName;
+    const parts = cleanName.trim().split(/[\s._-]+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return cleanName.slice(0, 2).toUpperCase() || "NR";
+  })();
+
+  const handleLogout = () => {
+    localStorage.removeItem("isAuthenticated");
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("userName");
+    navigate("/login");
+  };
   const [text, setText] = useState("");
   const [language, setLanguage] = useState("English");
   const [voice, setVoice] = useState("en-female");
   const [voiceName, setVoiceName] = useState("Female Voice");
+  const [audioUrl, setAudioUrl] = useState("");
+  const [currentItemId, setCurrentItemId] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGenerated, setIsGenerated] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [validationError, setValidationError] = useState("");
   const [volume, setVolume] = useState(80);
+  const [generatedLanguage, setGeneratedLanguage] = useState("");
+  const [generatedVoiceName, setGeneratedVoiceName] = useState("");
 
   // Character & word counts
   const charCount = text.length;
@@ -58,40 +86,94 @@ const Dashboard = () => {
   };
 
   const handleGenerateSpeech = async (e) => {
-      e.preventDefault();
-    
-      if (!text.trim()) {
-        setValidationError("Please enter some text to generate speech.");
-        return;
-      }
-    
-      if (text.length > MAX_CHARS) {
-        setValidationError(
-          `Text exceeds the maximum ${MAX_CHARS} character limit.`,
-        );
-        return;
-      }
-    
-      setValidationError("");
-      setIsGenerating(true);
-      setIsPlaying(false);
-    
-      try {
-        const response = await generateSpeech({
-          text,
-          language,
-          voice,
-        });
-    
-        console.log("Backend response:", response.data);
-        setIsGenerating(false);
+    e.preventDefault();
+
+    if (!text.trim()) {
+      setValidationError("Please enter some text to generate speech.");
+      return;
+    }
+
+    if (text.length > MAX_CHARS) {
+      setValidationError(
+        `Text exceeds the maximum ${MAX_CHARS} character limit.`,
+      );
+      return;
+    }
+
+    const langValidation = validateTextMatchesLanguage(text, language);
+    if (!langValidation.isValid) {
+      setValidationError(langValidation.error);
+      return;
+    }
+
+    setValidationError("");
+    setIsGenerating(true);
+    setIsPlaying(false);
+
+    try {
+      const selectedVoiceParam =
+        voiceName &&
+        (voiceName.includes("Female Voice") || voiceName.includes("Male Voice"))
+          ? voiceName
+          : voice;
+
+      const response = await generateSpeech({
+        text,
+        language,
+        voice: selectedVoiceParam,
+      });
+
+      console.log("Backend response:", response.data);
+      const generatedAudio = response?.data?.data?.audio;
+
+      if (generatedAudio) {
+        setAudioUrl(generatedAudio);
         setIsGenerated(true);
-      } catch (error) {
-        console.error("TTS API error:", error);
-        setValidationError("Unable to generate speech. Please try again.");
-        setIsGenerating(false);
+
+        const currentVoiceLabel = voiceName || (voice.includes("female") ? "Female Voice" : "Male Voice");
+        setGeneratedLanguage(language);
+        setGeneratedVoiceName(currentVoiceLabel);
+
+        const userEmail = localStorage.getItem("userEmail") || "default@user.com";
+        const saved = saveSpeechItem({
+          text: text.trim(),
+          language,
+          voice: currentVoiceLabel,
+          audio: generatedAudio,
+          userEmail,
+          isFavorite: false,
+        });
+
+        if (saved) {
+          setCurrentItemId(saved.id);
+          setIsFavorite(false);
+        }
+      } else {
+        setValidationError("Audio data was not returned by the server.");
+        setIsGenerated(false);
       }
-    };
+    } catch (error) {
+      console.error("TTS API error:", error);
+      const errorMsg =
+        error.response?.data?.message ||
+        error.message ||
+        "Unable to generate speech. Please try again.";
+      setValidationError(errorMsg);
+      setIsGenerated(false);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleFavoriteToggle = () => {
+    if (currentItemId) {
+      const userEmail = localStorage.getItem("userEmail");
+      const updatedFav = toggleFavoriteStatus(currentItemId, userEmail);
+      setIsFavorite(updatedFav);
+    } else {
+      setIsFavorite(!isFavorite);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 relative overflow-x-hidden selection:bg-purple-500 selection:text-white">
@@ -116,13 +198,23 @@ const Dashboard = () => {
           </div>
 
           {/* User Profile Area */}
-          <div className="flex items-center gap-3 bg-slate-950/60 border border-slate-800 px-3.5 py-1.5 rounded-full">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-xs font-bold text-white">
-              JD
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 bg-slate-950/60 border border-slate-800 px-3.5 py-1.5 rounded-full">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-xs font-bold text-white uppercase">
+                {userInitials}
+              </div>
+              <span className="text-xs font-medium text-slate-300 hidden sm:inline-block">
+                {userName}
+              </span>
             </div>
-            <span className="text-xs font-medium text-slate-300 hidden sm:inline-block">
-              John Doe
-            </span>
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-red-400 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-medium"
+              title="Log out"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
           </div>
         </div>
       </header>
@@ -308,7 +400,7 @@ const Dashboard = () => {
                     Generated Audio
                   </h3>
                   <p className="text-xs text-slate-400">
-                    {language} • {voiceName}
+                    {generatedLanguage} • {generatedVoiceName}
                   </p>
                 </div>
               </div>
@@ -317,7 +409,7 @@ const Dashboard = () => {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsFavorite(!isFavorite)}
+                  onClick={handleFavoriteToggle}
                   className={`p-2.5 rounded-xl border transition-colors cursor-pointer ${
                     isFavorite
                       ? "bg-pink-500/10 border-pink-500/40 text-pink-500"
@@ -332,57 +424,31 @@ const Dashboard = () => {
                   />
                 </button>
 
-                <button
-                  type="button"
-                  className="px-4 py-2.5 bg-slate-950/60 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-medium rounded-xl flex items-center gap-2 transition-all cursor-pointer"
-                >
-                  <Download className="w-4 h-4 text-purple-400" />
-                  <span>Download Audio</span>
-                </button>
+                {audioUrl ? (
+                  <a
+                    href={audioUrl}
+                    download="generated-speech.mp3"
+                    className="px-4 py-2.5 bg-slate-950/60 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-medium rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+                  >
+                    <Download className="w-4 h-4 text-purple-400" />
+                    <span>Download Audio</span>
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="px-4 py-2.5 bg-slate-950/60 border border-slate-800 text-slate-500 text-xs font-medium rounded-xl flex items-center gap-2 opacity-50 cursor-not-allowed"
+                  >
+                    <Download className="w-4 h-4 text-slate-500" />
+                    <span>Download Audio</span>
+                  </button>
+                )}
               </div>
             </div>
 
             {/* Audio Controls UI */}
-            <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-950/60 border border-slate-800 p-4 rounded-xl">
-              {/* Play/Pause Button */}
-              <button
-                type="button"
-                onClick={() => setIsPlaying(!isPlaying)}
-                className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white flex items-center justify-center shadow-lg shadow-purple-600/30 transition-all cursor-pointer shrink-0"
-              >
-                {isPlaying ? (
-                  <Pause className="w-5 h-5 fill-white" />
-                ) : (
-                  <Play className="w-5 h-5 fill-white ml-0.5" />
-                )}
-              </button>
-
-              {/* Progress Bar & Timestamps */}
-              <div className="flex-1 w-full space-y-1.5">
-                <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
-                  <span>{isPlaying ? "0:18" : "0:00"}</span>
-                  <span>0:45</span>
-                </div>
-                <div className="w-full h-2 bg-slate-800 rounded-full relative cursor-pointer overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all duration-300"
-                    style={{ width: isPlaying ? "40%" : "0%" }}
-                  />
-                </div>
-              </div>
-
-              {/* Volume Slider UI */}
-              <div className="flex items-center gap-2 sm:pl-2 shrink-0">
-                <Volume2 className="w-4 h-4 text-slate-400" />
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={volume}
-                  onChange={(e) => setVolume(Number(e.target.value))}
-                  className="w-20 accent-purple-500 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
-                />
-              </div>
+            <div className="pt-2">
+              <AudioPlayer id={currentItemId || "dashboard-generated-audio"} audioUrl={audioUrl} />
             </div>
           </div>
         )}

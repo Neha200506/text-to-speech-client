@@ -1,10 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   AudioWaveform,
   Search,
-  Play,
-  Pause,
   Download,
   Heart,
   Calendar,
@@ -12,63 +10,51 @@ import {
   Mic,
   ArrowLeft,
   History as HistoryIcon,
+  Trash2,
   X,
 } from "lucide-react";
-
-const mockHistoryItems = [
-  {
-    id: "1",
-    text: "Welcome to our AI Text-to-Speech platform. Experience natural, life-like voices generated in seconds for all your projects.",
-    language: "English",
-    voice: "Female Voice",
-    date: "Sep 9, 2026 • 04:15 PM",
-    duration: "0:24",
-    isFavorite: true,
-  },
-  {
-    id: "2",
-    text: "नमस्ते! हमारे एआई टेक्स्ट-टू-स्पीच ऐप में आपका स्वागत है। यहां आप प्राकृतिक आवाज़ों में भाषण तैयार कर सकते हैं।",
-    language: "Hindi",
-    voice: "Male Voice",
-    date: "Sep 8, 2026 • 11:30 AM",
-    duration: "0:18",
-    isFavorite: false,
-  },
-  {
-    id: "3",
-    text: "नमस्कार! टेक्स्ट टू स्पीच ॲप्लिकेशनमध्ये आपले स्वागत आहे. उच्च दर्जाचा आवाज सहज मिळवा.",
-    language: "Marathi",
-    voice: "Female Voice",
-    date: "Sep 7, 2026 • 09:45 AM",
-    duration: "0:15",
-    isFavorite: true,
-  },
-  {
-    id: "4",
-    text: "Willkommen auf unserer Text-to-Speech-Plattform. Erstellen Sie natürliche Sprachausgaben im Handumdrehen.",
-    language: "German",
-    voice: "Male Voice",
-    date: "Sep 5, 2026 • 02:20 PM",
-    duration: "0:19",
-    isFavorite: false,
-  },
-];
+import {
+  getHistory,
+  toggleFavoriteStatus,
+  deleteSpeechItem,
+} from "../services/speechStorage";
+import AudioPlayer from "../components/AudioPlayer";
 
 const History = () => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [playingId, setPlayingId] = useState(null);
-  const [historyList, setHistoryList] = useState(mockHistoryItems);
+  const userEmail = localStorage.getItem("userEmail") || "";
+  const storedName = localStorage.getItem("userName");
+  const userName =
+    storedName && storedName !== "neharedekar17" ? storedName : "Neha Redekar";
+  const userInitials = (() => {
+    if (!userName) return "NR";
+    const cleanName = userName.includes("@") ? userName.split("@")[0] : userName;
+    const parts = cleanName.trim().split(/[\s._-]+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return cleanName.slice(0, 2).toUpperCase() || "NR";
+  })();
 
-  const toggleFavorite = (id) => {
-    setHistoryList((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, isFavorite: !item.isFavorite } : item,
-      ),
-    );
+  const [searchQuery, setSearchQuery] = useState("");
+  const [historyList, setHistoryList] = useState([]);
+
+  const reloadHistory = () => {
+    const list = getHistory(userEmail);
+    setHistoryList(list);
   };
 
-  const togglePlay = (id) => {
-    setPlayingId((prev) => (prev === id ? null : id));
+  useEffect(() => {
+    reloadHistory();
+  }, [userEmail]);
+
+  const handleFavoriteToggle = (id) => {
+    toggleFavoriteStatus(id, userEmail);
+    reloadHistory();
+  };
+
+  const handleDelete = (id) => {
+    deleteSpeechItem(id, userEmail);
+    reloadHistory();
   };
 
   const filteredList = historyList.filter((item) => {
@@ -114,11 +100,11 @@ const History = () => {
             </Link>
 
             <div className="flex items-center gap-3 bg-slate-950/60 border border-slate-800 px-3.5 py-1.5 rounded-full">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-xs font-bold text-white">
-                JD
+              <div className="w-7 h-7 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-xs font-bold text-white uppercase">
+                {userInitials}
               </div>
               <span className="text-xs font-medium text-slate-300 hidden sm:inline-block">
-                John Doe
+                {userName}
               </span>
             </div>
           </div>
@@ -176,7 +162,6 @@ const History = () => {
         {filteredList.length > 0 ? (
           <div className="space-y-4">
             {filteredList.map((item) => {
-              const isPlayingThis = playingId === item.id;
               return (
                 <div
                   key={item.id}
@@ -212,34 +197,22 @@ const History = () => {
                     </p>
                   </div>
 
-                  {/* Controls / Actions Row */}
-                  <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-                    {/* Play/Pause Button & Duration */}
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => togglePlay(item.id)}
-                        className="h-10 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-xs font-medium flex items-center gap-2 shadow-md shadow-purple-600/25 transition-all cursor-pointer"
-                      >
-                        {isPlayingThis ? (
-                          <>
-                            <Pause className="w-4 h-4 fill-white" />
-                            <span>Pause</span>
-                          </>
-                        ) : (
-                          <>
-                            <Play className="w-4 h-4 fill-white" />
-                            <span>Play ({item.duration})</span>
-                          </>
-                        )}
-                      </button>
+                  {/* Single-Playback Audio Player */}
+                  {item.audio && (
+                    <div className="pt-1">
+                      <AudioPlayer id={item.id} audioUrl={item.audio} />
                     </div>
+                  )}
 
-                    {/* Action Icons (Favorite & Download) */}
+                  {/* Controls / Actions Row */}
+                  <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-slate-800/40">
+                    <div></div>
+
+                    {/* Action Icons (Favorite, Download, Delete) */}
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => toggleFavorite(item.id)}
+                        onClick={() => handleFavoriteToggle(item.id)}
                         className={`p-2.5 rounded-xl border transition-colors cursor-pointer ${
                           item.isFavorite
                             ? "bg-pink-500/10 border-pink-500/40 text-pink-500"
@@ -258,12 +231,24 @@ const History = () => {
                         />
                       </button>
 
+                      {item.audio ? (
+                        <a
+                          href={item.audio}
+                          download="generated-speech.mp3"
+                          className="px-4 py-2.5 bg-slate-950/60 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-medium rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+                        >
+                          <Download className="w-4 h-4 text-purple-400" />
+                          <span>Download</span>
+                        </a>
+                      ) : null}
+
                       <button
                         type="button"
-                        className="px-4 py-2.5 bg-slate-950/60 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-medium rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+                        onClick={() => handleDelete(item.id)}
+                        className="p-2.5 bg-slate-950/60 hover:bg-red-500/10 border border-slate-800 hover:border-red-500/40 text-slate-400 hover:text-red-400 rounded-xl transition-colors cursor-pointer"
+                        title="Delete record"
                       >
-                        <Download className="w-4 h-4 text-purple-400" />
-                        <span>Download</span>
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -282,10 +267,12 @@ const History = () => {
                 No speech history yet
               </h3>
               <p className="text-slate-400 text-sm max-w-sm mx-auto">
-                Your generated speech will appear here.
+                {searchQuery
+                  ? "No results found matching your search query."
+                  : "Your generated speech will appear here automatically."}
               </p>
             </div>
-            {searchQuery && (
+            {searchQuery ? (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
@@ -293,6 +280,16 @@ const History = () => {
               >
                 <span>Clear search filter</span>
               </button>
+            ) : (
+              <div className="pt-2">
+                <Link
+                  to="/dashboard"
+                  className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-purple-600/25 transition-all cursor-pointer inline-flex items-center gap-2"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Generate Speech Now</span>
+                </Link>
+              </div>
             )}
           </div>
         )}

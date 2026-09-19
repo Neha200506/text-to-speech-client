@@ -1,14 +1,33 @@
-import { useState } from "react";
-import { Link } from 'react-router-dom';
-import { AudioWaveform, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from 'react-router-dom';
+import { AudioWaveform, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (localStorage.getItem("isAuthenticated") === "true") {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [navigate]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!email.trim() || !password.trim()) {
+      setError("Please enter both email and password.");
+      return;
+    }
+    setError("");
+    localStorage.setItem("isAuthenticated", "true");
+    localStorage.setItem("userEmail", email.trim());
+    if (!localStorage.getItem("userName")) {
+      localStorage.setItem("userName", "Neha Redekar");
+    }
+    navigate("/dashboard");
   };
 
   return (
@@ -43,6 +62,12 @@ const Login = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs font-medium flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
             {/* Email Field */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
