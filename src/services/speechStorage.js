@@ -1,10 +1,10 @@
-
 /**
  * SpeechStorage service
  * Uses the backend API and Supabase for speech history.
  */
 
-const API_BASE_URL = "http://localhost:5000/api/history";
+const API_BASE_URL =
+  "http://https://text-to-speech-server-mj96.onrender.com/api/history";
 
 // Get authentication headers
 const getAuthHeaders = () => {
@@ -36,9 +36,7 @@ const handleResponse = async (response) => {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(
-      data.message || "Something went wrong with the request."
-    );
+    throw new Error(data.message || "Something went wrong with the request.");
   }
 
   return data;
@@ -101,19 +99,14 @@ export const saveSpeechItem = async (newItem) => {
 // Toggle favorite status
 export const toggleFavoriteStatus = async (id) => {
   try {
-    const response = await fetch(
-      `${API_BASE_URL}/${id}/favorite`,
-      {
-        method: "PATCH",
-        headers: getAuthHeaders(),
-      }
-    );
+    const response = await fetch(`${API_BASE_URL}/${id}/favorite`, {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+    });
 
     const result = await handleResponse(response);
 
-    return result.data
-      ? formatSpeechItem(result.data).isFavorite
-      : false;
+    return result.data ? formatSpeechItem(result.data).isFavorite : false;
   } catch (error) {
     console.error("Error toggling favorite status:", error);
     throw error;

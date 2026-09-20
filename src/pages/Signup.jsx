@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -12,7 +11,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-const API_BASE_URL = "http://localhost:5000/api/auth";
+const API_BASE_URL =
+  "http://https://text-to-speech-server-mj96.onrender.com/api/auth";
 
 const Signup = () => {
   const [fullName, setFullName] = useState("");
@@ -35,13 +35,7 @@ const Signup = () => {
     const hasNumber = /[0-9]/.test(pass);
     const hasSpecial = /[^A-Za-z0-9]/.test(pass);
 
-    return (
-      hasMinLength &&
-      hasUpper &&
-      hasLower &&
-      hasNumber &&
-      hasSpecial
-    );
+    return hasMinLength && hasUpper && hasLower && hasNumber && hasSpecial;
   };
 
   const handleSubmit = async (e) => {
@@ -59,7 +53,7 @@ const Signup = () => {
 
     if (!validatePassword(password)) {
       setError(
-        "Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number, and one special character."
+        "Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number, and one special character.",
       );
       return;
     }
@@ -94,7 +88,7 @@ const Signup = () => {
 
       alert(
         data.message ||
-          "Account created successfully! Please check your email to confirm your account."
+          "Account created successfully! Please check your email to confirm your account.",
       );
 
       navigate("/login");
@@ -102,7 +96,7 @@ const Signup = () => {
       console.error("Signup error:", err);
 
       setError(
-        "Unable to connect to the server. Please make sure your backend is running."
+        "Unable to connect to the server. Please make sure your backend is running.",
       );
     } finally {
       setLoading(false);
@@ -221,9 +215,7 @@ const Signup = () => {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
-                  aria-label={
-                    showPassword ? "Hide password" : "Show password"
-                  }
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />
@@ -256,9 +248,7 @@ const Signup = () => {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setShowConfirmPassword(!showConfirmPassword)
-                  }
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
                   aria-label={
                     showConfirmPassword
@@ -281,9 +271,7 @@ const Signup = () => {
               disabled={loading}
               className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 via-purple-500 to-blue-600 hover:from-purple-500 hover:to-blue-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium text-sm rounded-xl shadow-lg shadow-purple-600/25 transition-all duration-200 active:scale-[0.99] flex items-center justify-center gap-2 group mt-2 cursor-pointer"
             >
-              <span>
-                {loading ? "Creating Account..." : "Create Account"}
-              </span>
+              <span>{loading ? "Creating Account..." : "Create Account"}</span>
 
               {!loading && (
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />

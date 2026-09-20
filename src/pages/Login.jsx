@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -11,7 +10,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-const API_BASE_URL = "http://localhost:5000/api/auth";
+const API_BASE_URL =
+  "http://https://text-to-speech-server-mj96.onrender.com/api/auth";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -23,8 +23,7 @@ const Login = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const isAuthenticated =
-      localStorage.getItem("isAuthenticated") === "true";
+    const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
 
     if (isAuthenticated) {
       navigate("/dashboard", { replace: true });
@@ -80,10 +79,7 @@ const Login = () => {
       localStorage.setItem("userName", fullName);
 
       if (data.session?.access_token) {
-        localStorage.setItem(
-          "accessToken",
-          data.session.access_token
-        );
+        localStorage.setItem("accessToken", data.session.access_token);
       }
 
       alert("Login successful!");
@@ -93,7 +89,7 @@ const Login = () => {
       console.error("Login error:", err);
 
       setError(
-        "Unable to connect to the server. Please make sure your backend is running."
+        "Unable to connect to the server. Please make sure your backend is running.",
       );
     } finally {
       setLoading(false);
@@ -189,9 +185,7 @@ const Login = () => {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
-                  aria-label={
-                    showPassword ? "Hide password" : "Show password"
-                  }
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />
@@ -208,9 +202,7 @@ const Login = () => {
               disabled={loading}
               className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 via-purple-500 to-blue-600 hover:from-purple-500 hover:to-blue-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium text-sm rounded-xl shadow-lg shadow-purple-600/25 transition-all duration-200 active:scale-[0.99] flex items-center justify-center gap-2 group mt-2 cursor-pointer"
             >
-              <span>
-                {loading ? "Signing In..." : "Sign In"}
-              </span>
+              <span>{loading ? "Signing In..." : "Sign In"}</span>
 
               {!loading && (
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
