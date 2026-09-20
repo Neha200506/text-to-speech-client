@@ -1,94 +1,138 @@
+
 /**
- * SpeechStorage service for persisting generated speech items in localStorage
- * scoped by user email.
+ * SpeechStorage service
+ * Uses the backend API and Supabase for speech history.
  */
 
-const STORAGE_KEY = "tts_speech_history";
+const API_BASE_URL = "http://localhost:5000/api/history";
 
-export const getHistory = (userEmail) => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const items = JSON.parse(raw);
-    if (!Array.isArray(items)) return [];
-    if (!userEmail) return items;
-    return items.filter(
-      (item) => item.userEmail?.toLowerCase() === userEmail.toLowerCase(),
+// Get authentication headers
+const getAuthHeaders = () => {
+  const accessToken = localStorage.getItem("accessToken");
+
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`,
+  };
+};
+
+// Convert backend data into frontend format
+const formatSpeechItem = (item) => {
+  return {
+    id: item.id,
+    userEmail: localStorage.getItem("userEmail") || "",
+    text: item.text,
+    language: item.language,
+    voice: item.voice,
+    audio: item.audio,
+    date: item.date,
+    createdAt: item.created_at,
+    isFavorite: item.is_favorite,
+  };
+};
+
+// Handle API errors
+const handleResponse = async (response) => {
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data.message || "Something went wrong with the request."
     );
-  } catch (error) {
-    console.error("Error reading speech history from localStorage:", error);
-    return [];
   }
+
+  return data;
 };
 
-export const getFavorites = (userEmail) => {
-  const history = getHistory(userEmail);
-  return history.filter((item) => item.isFavorite);
-};
-
-export const saveSpeechItem = (newItem) => {
+// Get all speech history
+export const getHistory = async () => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const existing = raw ? JSON.parse(raw) : [];
-    const formattedDate = new Date().toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
+    const response = await fetch(API_BASE_URL, {
+      method: "GET",
+      headers: getAuthHeaders(),
     });
 
-    const itemToSave = {
-      id: newItem.id || Date.now().toString(),
-      userEmail: newItem.userEmail || localStorage.getItem("userEmail") || "default@user.com",
-      text: newItem.text,
-      language: newItem.language,
-      voice: newItem.voice,
-      audio: newItem.audio,
-      date: newItem.date || formattedDate,
-      createdAt: newItem.createdAt || Date.now(),
-      isFavorite: !!newItem.isFavorite,
-    };
+    const result = await handleResponse(response);
 
-    const updated = [itemToSave, ...existing];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    return itemToSave;
+    return (result.data || []).map(formatSpeechItem);
   } catch (error) {
-    console.error("Error saving speech item to localStorage:", error);
-    return null;
+    console.error("Error fetching speech history:", error);
+    throw error;
   }
 };
 
-export const toggleFavoriteStatus = (id, userEmail) => {
+// Get favorite speech items
+export const getFavorites = async () => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return false;
-    const items = JSON.parse(raw);
-    let newFavState = false;
-    const updated = items.map((item) => {
-      if (item.id === id) {
-        newFavState = !item.isFavorite;
-        return { ...item, isFavorite: newFavState };
+    const history = await getHistory();
+
+    return history.filter((item) => item.isFavorite);
+  } catch (error) {
+    console.error("Error fetching favorites:", error);
+    throw error;
+  }
+};
+
+// Save a new speech item
+export const saveSpeechItem = async (newItem) => {
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        text: newItem.text,
+        language: newItem.language,
+        voice: newItem.voice,
+        audio: newItem.audio,
+        date: newItem.date,
+        isFavorite: !!newItem.isFavorite,
+      }),
+    });
+
+    const result = await handleResponse(response);
+
+    return result.data ? formatSpeechItem(result.data) : null;
+  } catch (error) {
+    console.error("Error saving speech item:", error);
+    throw error;
+  }
+};
+
+// Toggle favorite status
+export const toggleFavoriteStatus = async (id) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/${id}/favorite`,
+      {
+        method: "PATCH",
+        headers: getAuthHeaders(),
       }
-      return item;
-    });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    return newFavState;
+    );
+
+    const result = await handleResponse(response);
+
+    return result.data
+      ? formatSpeechItem(result.data).isFavorite
+      : false;
   } catch (error) {
     console.error("Error toggling favorite status:", error);
-    return false;
+    throw error;
   }
 };
 
-export const deleteSpeechItem = (id, userEmail) => {
+// Delete speech history item
+export const deleteSpeechItem = async (id) => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const items = JSON.parse(raw);
-    const updated = items.filter((item) => item.id !== id);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    const response = await fetch(`${API_BASE_URL}/${id}`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    });
+
+    await handleResponse(response);
+
+    return true;
   } catch (error) {
     console.error("Error deleting speech item:", error);
+    throw error;
   }
 };

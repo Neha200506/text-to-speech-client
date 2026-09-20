@@ -1,11 +1,13 @@
-/**
- * Centralized Audio Manager to guarantee single-audio playback across the application.
+
+ /**
+ * Centralized Audio Manager
  *
- * Rules Enforced:
- * 1. Only ONE audio plays at any time across History, Favorites, and Dashboard.
- * 2. Pausing the currently selected audio preserves its currentTime so clicking Play again resumes from where it was paused.
- * 3. Clicking a different audio immediately pauses & resets the previous audio to 0s, and starts the new audio from 0s.
- * 4. When an audio finishes naturally, its playback position resets to 0s and state updates correctly.
+ * Features:
+ * 1. Only one audio plays at a time.
+ * 2. Pause and resume from the same position.
+ * 3. Switching audio resets the previous audio.
+ * 4. Finished audio resets to 0 seconds.
+ * 5. Forward and backward seeking is supported.
  */
 
 let activeAudioInstance = null;
@@ -16,14 +18,15 @@ const notifyListeners = (data) => {
   listeners.forEach((listener) => {
     try {
       listener(data);
-    } catch (e) {
-      console.error("Audio listener error:", e);
+    } catch (error) {
+      console.error("Audio listener error:", error);
     }
   });
 };
 
 export const subscribeAudioState = (listener) => {
   listeners.add(listener);
+
   return () => {
     listeners.delete(listener);
   };
@@ -31,89 +34,142 @@ export const subscribeAudioState = (listener) => {
 
 export const getActiveAudioId = () => activeAudioId;
 
+/**
+ * Stop and reset the active audio.
+ */
 export const stopActiveAudio = () => {
-  if (activeAudioInstance) {
-    const previousId = activeAudioId;
-    try {
-      activeAudioInstance.pause();
-      activeAudioInstance.currentTime = 0;
-    } catch (e) {
-      console.error("Error stopping audio:", e);
-    }
-    activeAudioInstance = null;
-    activeAudioId = null;
+  if (!activeAudioInstance) {
+    return;
+  }
+
+  const previousId = activeAudioId;
+
+  try {
+    activeAudioInstance.pause();
+    activeAudioInstance.currentTime = 0;
+  } catch (error) {
+    console.error("Error stopping audio:", error);
+  }
+
+  activeAudioInstance = null;
+  activeAudioId = null;
+
+  notifyListeners({
+    action: "stop",
+    id: previousId,
+    isPlaying: false,
+    currentTime: 0,
+    duration: 0,
+  });
+};
+
+/**
+ * Seek forward or backward in the active audio.
+ */
+export const seekActiveAudio = (id, time) => {
+  if (!activeAudioInstance || activeAudioId !== id) {
+    return;
+  }
+
+  if (!Number.isFinite(time)) {
+    return;
+  }
+
+  const audio = activeAudioInstance;
+  const duration = audio.duration;
+
+  if (!Number.isFinite(duration) || duration <= 0) {
+    return;
+  }
+
+  // Keep the time between 0 and the audio duration.
+  const safeTime = Math.max(0, Math.min(time, duration));
+
+  try {
+    audio.currentTime = safeTime;
 
     notifyListeners({
-      action: "stop",
-      id: previousId,
-      isPlaying: false,
-      currentTime: 0,
+      action: "seek",
+      id,
+      isPlaying: !audio.paused,
+      currentTime: audio.currentTime,
+      duration: duration,
     });
+  } catch (error) {
+    console.error("Error seeking audio:", error);
   }
 };
 
+/**
+ * Play, pause, or resume an audio item.
+ */
 export const playAudioItem = (id, audioUrl) => {
-  if (!audioUrl) return;
+  if (!audioUrl) {
+    return;
+  }
 
-  // 1. If user clicks the currently selected audio
+  // Clicking the currently active audio.
   if (activeAudioId === id && activeAudioInstance) {
-    if (!activeAudioInstance.paused) {
-      // Audio is playing -> PAUSE IT (preserve currentTime!)
-      activeAudioInstance.pause();
+    const audio = activeAudioInstance;
+
+    if (!audio.paused) {
+      // Pause without resetting the position.
+      audio.pause();
+
       notifyListeners({
         action: "pause",
         id,
         isPlaying: false,
-        currentTime: activeAudioInstance.currentTime,
-        duration: activeAudioInstance.duration || 0,
+        currentTime: audio.currentTime,
+        duration: audio.duration || 0,
       });
     } else {
-      // Audio is paused -> RESUME IT from where it was paused!
-      activeAudioInstance
+      // Resume from the paused position.
+      audio
         .play()
         .then(() => {
           notifyListeners({
             action: "resume",
             id,
             isPlaying: true,
-            currentTime: activeAudioInstance.currentTime,
-            duration: activeAudioInstance.duration || 0,
+            currentTime: audio.currentTime,
+            duration: audio.duration || 0,
           });
         })
-        .catch((err) => {
-          console.error("Audio resume error:", err);
+        .catch((error) => {
+          console.error("Audio resume error:", error);
           stopActiveAudio();
         });
     }
+
     return;
   }
 
-  // 2. Switching to a DIFFERENT audio -> stop & reset previous audio to 0s
+  // Switch to a different audio.
   stopActiveAudio();
 
-  // 3. Create & play new Audio instance from beginning (0s)
+  // Create a new audio instance.
   const audio = new Audio(audioUrl);
+
   activeAudioInstance = audio;
   activeAudioId = id;
 
   audio.currentTime = 0;
 
-  audio.addEventListener("ended", () => {
+  // Load audio duration.
+  audio.addEventListener("loadedmetadata", () => {
     if (activeAudioInstance === audio) {
-      audio.currentTime = 0;
-      const finishedId = activeAudioId;
-      activeAudioInstance = null;
-      activeAudioId = null;
-
       notifyListeners({
-        action: "ended",
-        id: finishedId,
-        isPlaying: false,
-        currentTime: 0,
+        action: "loadedmetadata",
+        id,
+        isPlaying: !audio.paused,
+        currentTime: audio.currentTime,
+        duration: audio.duration || 0,
       });
     }
   });
 
+  // Update the playback position.
   audio.addEventListener("timeupdate", () => {
     if (activeAudioInstance === audio) {
       notifyListeners({
@@ -126,6 +182,27 @@ export const playAudioItem = (id, audioUrl) => {
     }
   });
 
+  // Reset after the audio finishes.
+  audio.addEventListener("ended", () => {
+    if (activeAudioInstance === audio) {
+      audio.currentTime = 0;
+
+      const finishedId = activeAudioId;
+
+      activeAudioInstance = null;
+      activeAudioId = null;
+
+      notifyListeners({
+        action: "ended",
+        id: finishedId,
+        isPlaying: false,
+        currentTime: 0,
+        duration: 0,
+      });
+    }
+  });
+
+  // Start playing.
   audio
     .play()
     .then(() => {
@@ -133,13 +210,12 @@ export const playAudioItem = (id, audioUrl) => {
         action: "play",
         id,
         isPlaying: true,
-        currentTime: 0,
+        currentTime: audio.currentTime,
         duration: audio.duration || 0,
       });
     })
-    .catch((err) => {
-      console.error("Audio playback error:", err);
+    .catch((error) => {
+      console.error("Audio playback error:", error);
       stopActiveAudio();
     });
 };
-

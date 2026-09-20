@@ -124,8 +124,10 @@ export const validateTextMatchesLanguage = (text, selectedLanguage) => {
 
   const isPrimaryDevanagari = devCount > 0 && devCount >= latinCount;
   const isPrimaryLatin = latinCount > 0 && latinCount > devCount;
-  const tokens = cleanText.toLowerCase().split(/[\s,.;:!?()"'«»\-\+\/\\]+/).filter(Boolean);
-
+  const tokens = cleanText
+  .toLowerCase()
+  .split(/[\s,.;:!?()"'«»+]+/)
+  .filter(Boolean);
   if (selectedLanguage === "English") {
     if (isPrimaryDevanagari || devCount > latinCount * 0.3) {
       return { isValid: false, error: DEFAULT_ERROR };
@@ -147,18 +149,6 @@ export const validateTextMatchesLanguage = (text, selectedLanguage) => {
 
   if (selectedLanguage === "German") {
     if (isPrimaryDevanagari || devCount > latinCount * 0.3) {
-      return { isValid: false, error: DEFAULT_ERROR };
-    }
-    if (GERMAN_CHAR_REGEX.test(cleanText)) {
-      return { isValid: true, error: null };
-    }
-    let germanScore = 0;
-    let englishScore = 0;
-    tokens.forEach((t) => {
-      if (GERMAN_WORDS.has(t)) germanScore++;
-      if (ENGLISH_WORDS.has(t)) englishScore++;
-    });
-    if (englishScore > germanScore && englishScore >= 2 && germanScore === 0) {
       return { isValid: false, error: DEFAULT_ERROR };
     }
     return { isValid: true, error: null };
