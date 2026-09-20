@@ -11,8 +11,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-const API_BASE_URL =
-  "http://https://text-to-speech-server-mj96.onrender.com/api/auth";
+const API_BASE_URL = "https://text-to-speech-server-mj96.onrender.com/api/auth";
 
 const Signup = () => {
   const [fullName, setFullName] = useState("");

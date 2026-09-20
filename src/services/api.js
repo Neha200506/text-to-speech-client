@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://https://text-to-speech-server-mj96.onrender.com/api",
+  baseURL: "https://text-to-speech-server-mj96.onrender.com/api",
 });
 
 export const checkHealth = () => {

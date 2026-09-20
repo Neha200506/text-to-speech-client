@@ -4,7 +4,7 @@
  */
 
 const API_BASE_URL =
-  "http://https://text-to-speech-server-mj96.onrender.com/api/history";
+  "https://text-to-speech-server-mj96.onrender.com/api/history";
 
 // Get authentication headers
 const getAuthHeaders = () => {
